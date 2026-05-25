@@ -1,9 +1,21 @@
 #include <windows.h>
 #include <winternl.h>
+#include <ntstatus.h>
 #include <stdio.h>
 
 #pragma comment(lib, "ntdll.lib")
+#pragma comment(lib, "kernel32.lib")
 
+// NTSTATUS tanımları (eğer ntstatus.h düzgün yüklenmediyse)
+#ifndef STATUS_SUCCESS
+#define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
+#endif
+
+#ifndef STATUS_DLL_NOT_FOUND
+#define STATUS_DLL_NOT_FOUND ((NTSTATUS)0xC0000135L)
+#endif
+
+// Gerisi...
 // NTDLL fonksiyonları
 typedef NTSTATUS(NTAPI* tLdrGetDllHandle)(
     _In_opt_ PWSTR DllPath,

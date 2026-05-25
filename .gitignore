@@ -1,0 +1,25 @@
+# Ignore Visual Studio workspace and user-specific files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.vsix
+*.vsidx
+
+# Build output
+bin/
+obj/
+
+# Rider/IDE
+.idea/
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
