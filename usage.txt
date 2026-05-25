@@ -1,0 +1,21 @@
+$exe = "C:\DrakinGame\Binaries\GOD.exe"
+$dll = "D:\Repos\Inject\dllmain.dll"
+$proc = Start-Process -FilePath $exe -PassThru
+Start-Sleep -Milliseconds 2000
+
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class I {
+    [DllImport("kernel32")] public static extern IntPtr OpenProcess(uint a,bool b,int c);
+    [DllImport("kernel32")] public static extern IntPtr GetProcAddress(IntPtr a,string b);
+    [DllImport("kernel32")] public static extern IntPtr GetModuleHandle(string a);
+    [DllImport("kernel32")] public static extern IntPtr CreateRemoteThread(IntPtr a,IntPtr b,uint c,IntPtr d,IntPtr e,uint f,out IntPtr g);
+    [DllImport("kernel32")] public static extern bool WriteProcessMemory(IntPtr a,IntPtr b,byte[] c,uint d,out uint e);
+    [DllImport("kernel32")] public static extern IntPtr VirtualAllocEx(IntPtr a,IntPtr b,uint c,uint d,uint e);
+    public static void Go(int p,string d){IntPtr hp=OpenProcess(0x1F0FFF,false,p);byte[] db=System.Text.Encoding.ASCII.GetBytes(d);IntPtr ma=VirtualAllocEx(hp,IntPtr.Zero,(uint)db.Length+1,0x1000,4);uint w;WriteProcessMemory(hp,ma,db,(uint)db.Length,out w);IntPtr k=GetModuleHandle("kernel32.dll");IntPtr l=GetProcAddress(k,"LoadLibraryA");IntPtr t;CreateRemoteThread(hp,IntPtr.Zero,0,l,ma,0,out t);}
+}
+"@
+
+[I]::Go($proc.Id, $dll)
+Write-Host "[+] Injected!"
