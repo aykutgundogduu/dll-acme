@@ -1,4 +1,7 @@
-Add-Type @"
+# Admin PowerShell'de:
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+
+$code = @"
 using System;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
@@ -32,7 +35,7 @@ public class Injector {
     const uint PAGE_READWRITE = 0x04;
     const uint PROCESS_ALL_ACCESS = 0x1F0FFF;
     
-    public static void Inject(string exePath, string dllPath) {
+    public static bool Inject(string exePath, string dllPath) {
         try {
             Console.WriteLine("[*] Exe başlatılıyor: " + exePath);
             ProcessStartInfo psi = new ProcessStartInfo(exePath);
@@ -41,52 +44,47 @@ public class Injector {
             
             if (proc == null) {
                 Console.WriteLine("[-] Exe başlatılamadı");
-                return;
+                return false;
             }
             
             Console.WriteLine("[+] Process başlatıldı (PID: {0})", proc.Id);
-            System.Threading.Thread.Sleep(3000); // Ana pencere açılsın diye bekle
+            System.Threading.Thread.Sleep(3000);
             
-            // Process'i aç
             IntPtr hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, proc.Id);
             if (hProcess == IntPtr.Zero) {
                 Console.WriteLine("[-] OpenProcess hatası: {0}", Marshal.GetLastWin32Error());
-                return;
+                return false;
             }
             Console.WriteLine("[+] Process handle açıldı");
             
-            // DLL path'ini memory'ye allocate et
             byte[] dllBytes = System.Text.Encoding.Ansi.GetBytes(dllPath);
             IntPtr remoteAddr = VirtualAllocEx(hProcess, IntPtr.Zero, (uint)(dllBytes.Length + 1), MEM_COMMIT, PAGE_READWRITE);
             
             if (remoteAddr == IntPtr.Zero) {
                 Console.WriteLine("[-] VirtualAllocEx hatası: {0}", Marshal.GetLastWin32Error());
                 CloseHandle(hProcess);
-                return;
+                return false;
             }
             Console.WriteLine("[+] Remote memory allocated");
             
-            // DLL path'ini yaz
             uint bytesWritten;
             if (!WriteProcessMemory(hProcess, remoteAddr, dllBytes, (uint)dllBytes.Length, out bytesWritten)) {
                 Console.WriteLine("[-] WriteProcessMemory hatası: {0}", Marshal.GetLastWin32Error());
                 CloseHandle(hProcess);
-                return;
+                return false;
             }
             Console.WriteLine("[+] DLL path yazıldı ({0} bytes)", bytesWritten);
             
-            // kernel32.LoadLibraryA'nın adresini bul
             IntPtr hKernel32 = GetModuleHandle("kernel32.dll");
             IntPtr pLoadLibraryA = GetProcAddress(hKernel32, "LoadLibraryA");
             
             if (pLoadLibraryA == IntPtr.Zero) {
                 Console.WriteLine("[-] LoadLibraryA bulunamadı");
                 CloseHandle(hProcess);
-                return;
+                return false;
             }
             Console.WriteLine("[+] LoadLibraryA adresi: 0x{0:X}", pLoadLibraryA.ToInt64());
             
-            // Remote thread oluştur (DLL yükle)
             IntPtr hThread;
             IntPtr hThreadId;
             hThread = CreateRemoteThread(hProcess, IntPtr.Zero, 0, pLoadLibraryA, remoteAddr, 0, out hThreadId);
@@ -94,7 +92,7 @@ public class Injector {
             if (hThread == IntPtr.Zero) {
                 Console.WriteLine("[-] CreateRemoteThread hatası: {0}", Marshal.GetLastWin32Error());
                 CloseHandle(hProcess);
-                return;
+                return false;
             }
             
             Console.WriteLine("[+] Remote thread oluşturuldu");
@@ -105,18 +103,36 @@ public class Injector {
             CloseHandle(hProcess);
             
             Console.WriteLine("[+] Injection başarılı!");
-            Console.WriteLine("[*] Exe çalışıyor, DLL bypass aktif");
+            return true;
         }
         catch (Exception ex) {
             Console.WriteLine("[-] HATA: " + ex.Message);
             Console.WriteLine(ex.StackTrace);
+            return false;
         }
     }
 }
 "@
 
+# Type'ı ekle
+Add-Type -TypeDefinition $code -Language CSharp
+
+# Parametreler
 $exe = "C:\DrakinGame\Binaries\GOD.exe"
 $dll = "D:\Repos\Inject\dllmain.dll"
 
-Write-Host "[*] Injector başlatılıyor..."
-[Injector]::Inject($exe, $dll)
+Write-Host "[*] VM Detection Bypass Injector" -ForegroundColor Cyan
+Write-Host "[*] Exe: $exe" -ForegroundColor Yellow
+Write-Host "[*] DLL: $dll" -ForegroundColor Yellow
+Write-Host ""
+
+# Injection yap
+$result = [Injector]::Inject($exe, $dll)
+
+if ($result) {
+    Write-Host "[+] Başarılı! Exe çalışıyor, bypass aktif" -ForegroundColor Green
+} else {
+    Write-Host "[-] Başarısız" -ForegroundColor Red
+}
+
+
